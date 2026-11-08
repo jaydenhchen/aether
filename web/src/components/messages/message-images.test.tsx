@@ -46,21 +46,26 @@ const width = (dialog: HTMLElement) => within(dialog).getByRole('img').style.wid
 /** The drawn width as a multiple of the fitted width: an 800x600 frame fits 2400x1400 at a third. */
 const zoomOf = (dialog: HTMLElement) => parseFloat(width(dialog)) / 800
 
-test('an image larger than the window switches between fit and actual size, from a click or the header', async () => {
+test('a click on an image larger than the window switches between fit and actual size', async () => {
   const dialog = await open('Image 1 of 2')
   load(dialog, [2400, 1400])
-  const toggle = within(dialog).getByRole('button', { name: 'Actual size' })
-  expect(toggle.getAttribute('aria-pressed')).toBe('false')
-  fireEvent.click(frameOf(dialog))
-  expect(toggle.getAttribute('aria-pressed')).toBe('false')
   fireEvent.click(within(dialog).getByRole('img'))
-  expect(toggle.getAttribute('aria-pressed')).toBe('true')
   expect(frameOf(dialog).getAttribute('aria-label')).toBe('Image 1 of 2, zoomed to 100%')
   expect(width(dialog)).toBe('2400px')
-  expect(within(dialog).getByText('100%')).toBeDefined()
-  fireEvent.click(toggle)
+  fireEvent.click(frameOf(dialog))
+  expect(screen.getByRole('dialog')).toBe(dialog)
+  fireEvent.click(within(dialog).getByRole('img'))
   expect(width(dialog)).toBe('')
-  expect(within(dialog).queryByText('100%')).toBeNull()
+})
+
+test('the viewer shows only the picture, and closes from its close button or a click beside the picture', async () => {
+  const dialog = await open('Image 1 of 2')
+  expect(within(dialog).getAllByRole('button').map((button) => button.getAttribute('aria-label'))).toEqual(['Close'])
+  fireEvent.click(within(dialog).getByRole('button', { name: 'Close' }))
+  expect(screen.queryByRole('dialog')).toBeNull()
+  fireEvent.click(screen.getByRole('button', { name: 'Open image 1 of 2 full size' }))
+  fireEvent.click(frameOf(await screen.findByRole('dialog')))
+  expect(screen.queryByRole('dialog')).toBeNull()
 })
 
 test('Command or Control with plus, minus and zero zoom in steps from the fitted size, and back to fit', async () => {
@@ -110,7 +115,6 @@ test('spreading two fingers zooms the image', async () => {
 test('an image that already fits offers no zoom', async () => {
   const dialog = await open('Image 1 of 2')
   load(dialog, [320, 180])
-  expect(within(dialog).queryByRole('button', { name: 'Actual size' })).toBeNull()
   fireEvent.click(within(dialog).getByRole('img'))
   expect(width(dialog)).toBe('')
 })
@@ -118,12 +122,12 @@ test('an image that already fits offers no zoom', async () => {
 test('reopening an image starts fitted again', async () => {
   const dialog = await open('Image 1 of 2')
   load(dialog, [2400, 1400])
-  fireEvent.click(within(dialog).getByRole('button', { name: 'Actual size' }))
+  fireEvent.click(within(dialog).getByRole('img'))
   fireEvent.keyDown(dialog, { key: 'Escape' })
   fireEvent.click(screen.getByRole('button', { name: 'Open image 1 of 2 full size' }))
   const reopened = await screen.findByRole('dialog')
   load(reopened, [2400, 1400])
-  expect(within(reopened).getByRole('button', { name: 'Actual size' }).getAttribute('aria-pressed')).toBe('false')
+  expect(width(reopened)).toBe('')
 })
 
 test('an image that fails to load shows the error instead of a button', async () => {
@@ -149,7 +153,7 @@ test('the arrow keys step through the images and stop at either end', async () =
 test('zoomed in, the arrow keys scroll the picture instead of switching', async () => {
   const dialog = await open('Image 1 of 3', three)
   load(dialog, [2400, 1400])
-  fireEvent.click(within(dialog).getByRole('button', { name: 'Actual size' }))
+  fireEvent.click(within(dialog).getByRole('img'))
   fireEvent.keyDown(dialog, { key: 'ArrowRight' })
   expect(screen.getByRole('dialog', { name: 'Image 1 of 3' })).toBeDefined()
 })
@@ -251,21 +255,21 @@ test('a click zooms to actual size with the clicked point kept under the pointer
   load(dialog, [2400, 1400])
   const frame = frameOf(dialog)
   const image = within(dialog).getByRole('img')
-  const rect = (width: number, height: number) => ({ left: 0, top: 0, width, height }) as DOMRect
+  const rect = (width: number, height: number, top = 0) => ({ left: 0, top, width, height }) as DOMRect
   frame.getBoundingClientRect = () => rect(800, 600)
-  image.getBoundingClientRect = () => (image.style.width ? rect(parseFloat(image.style.width), parseFloat(image.style.height)) : rect(800, 600))
+  image.getBoundingClientRect = () => (image.style.width ? rect(parseFloat(image.style.width), parseFloat(image.style.height)) : rect(800, 466.67, 66.67))
   const scroll = { left: 0, top: 0 }
   Object.defineProperties(frame, {
     scrollLeft: { get: () => scroll.left, set: (v: number) => (scroll.left = v) },
     scrollTop: { get: () => scroll.top, set: (v: number) => (scroll.top = v) },
   })
-  // Fitted, 2400x1400 draws 800x466.67, letterboxed 66.67 from the top; this is its bottom-right quarter point.
+  // Fitted, 2400x1400 draws 800x466.67, centred 66.67 from the top; this is its bottom-right quarter point.
   fireEvent.click(image, { clientX: 600, clientY: 66.67 + 466.67 * 0.75 })
   expect(scroll.left).toBeCloseTo(2400 * 0.75 - 600, 0)
   expect(scroll.top).toBeCloseTo(1400 * 0.75 - (66.67 + 466.67 * 0.75), 0)
 })
 
-test('the zoom controls follow the frame as the window resizes', async () => {
+test('whether a click zooms follows the frame as the window resizes', async () => {
   const observed: ResizeObserverCallback[] = []
   vi.stubGlobal('ResizeObserver', class {
     constructor(callback: ResizeObserverCallback) {
@@ -276,9 +280,11 @@ test('the zoom controls follow the frame as the window resizes', async () => {
   })
   const dialog = await open('Image 1 of 2')
   load(dialog, [1000, 500], [1200, 700])
-  expect(within(dialog).queryByRole('button', { name: 'Actual size' })).toBeNull()
+  fireEvent.click(within(dialog).getByRole('img'))
+  expect(width(dialog)).toBe('')
   Object.defineProperties(frameOf(dialog), { clientWidth: { value: 600 }, clientHeight: { value: 400 } })
   act(() => observed.forEach((callback) => callback([], {} as ResizeObserver)))
-  expect(within(dialog).getByRole('button', { name: 'Actual size' })).toBeDefined()
+  fireEvent.click(within(dialog).getByRole('img'))
+  expect(width(dialog)).toBe('1000px')
   vi.unstubAllGlobals()
 })

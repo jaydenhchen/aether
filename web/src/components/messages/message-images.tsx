@@ -136,7 +136,7 @@ function ImageViewer({ url, name, gallery, zoomed, keys, refocus, onStep, onClos
       src={url}
       alt={name}
       className={cn(
-        'rounded-composer border border-seam',
+        'rounded-control border border-seam',
         scale === undefined ? 'max-h-full max-w-full' : 'max-w-none shrink-0 cursor-zoom-out',
         scale === undefined && zoomable && 'cursor-zoom-in',
       )}
@@ -196,10 +196,7 @@ function ImageViewer({ url, name, gallery, zoomed, keys, refocus, onStep, onClos
         tabIndex={0}
         role="group"
         aria-label={`${name}, ${scale === undefined ? 'fitted' : `zoomed to ${Math.round(scale * 100)}%`}`}
-        className={cn(
-          'row-start-2 mx-4 mb-4 flex min-h-0 touch-pan-x touch-pan-y overflow-auto rounded-composer outline-none',
-          'focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-focus',
-        )}
+        className={cn('row-start-2 mx-4 mb-4 flex min-h-0 touch-pan-x touch-pan-y overflow-auto rounded-control', focusRingInset)}
         onClick={(event) => {
           // A fitted picture leaves only empty space around it; zoomed, a click there may be on the frame's scrollbar.
           if (event.target !== img.current) {
@@ -222,8 +219,8 @@ function ImageViewer({ url, name, gallery, zoomed, keys, refocus, onStep, onClos
           ].filter(Boolean).join(' ')}
         </DialogDescription>
         <DialogPrimitive.Close asChild>
-          <Button variant="ghost" size="icon" label="Close" className="size-9 [&_svg]:size-5">
-            <X />
+          <Button variant="ghost" size="icon" label="Close" className="size-9">
+            <X className="size-5" />
           </Button>
         </DialogPrimitive.Close>
       </div>
@@ -342,6 +339,7 @@ export function MessageAttachments({ runID, images = [], files = [] }: { runID: 
       <Dialog open={url !== undefined} onOpenChange={(open) => !open && setOpenID(undefined)}>
         <DialogContent
           showCloseButton={false}
+          overlayClassName="bg-black/85"
           className="inset-0 h-auto max-h-none w-auto max-w-none translate-x-0 translate-y-0 grid-rows-[auto_minmax(0,1fr)] gap-0 overflow-hidden rounded-none border-0 bg-transparent p-0 shadow-none max-md:inset-0 max-md:h-dvh max-md:max-h-none max-md:pb-[env(safe-area-inset-bottom)]"
           onKeyDown={(event) => {
             keys.current?.(event)

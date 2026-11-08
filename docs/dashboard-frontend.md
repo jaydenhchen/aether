@@ -3558,7 +3558,7 @@ URLs when identity, session or row changes, and shows each other file as a chip
 named by its basename with the path as its title. Each image is named by its place
 in the row ("Image 2 of 3", or "Attached image" when it is alone), and its
 thumbnail is a button that opens the same blob in a `Dialog` filling the window
-(the whole screen on a phone), fitted to it. The dialog shows only the picture,
+(the whole screen on a phone), fitted to it. The dialog shows only the picture on a near-black backdrop,
 with the composer's thin border, and a close button in a row as tall as the top
 bar, which keeps the macOS window buttons off the picture; the name stays
 for screen readers. Zoom runs from fitted to 400% of
